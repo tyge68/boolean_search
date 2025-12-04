@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { searchWithBoolean, parseQuery, formatResults, SearchResult } from './search';
+import { searchWithBoolean, parseQuery, formatResults, SearchResult, SearchMode } from './search';
 
 export class SearchPanel {
     public static currentPanel: SearchPanel | undefined;
@@ -19,7 +19,8 @@ export class SearchPanel {
                         await this.performSearch(
                             message.query,
                             message.caseSensitive,
-                            message.filePattern
+                            message.filePattern,
+                            message.searchMode
                         );
                         break;
                     case 'openFile':
@@ -55,7 +56,7 @@ export class SearchPanel {
         SearchPanel.currentPanel = new SearchPanel(panel);
     }
 
-    private async performSearch(query: string, caseSensitive: boolean, filePattern: string) {
+    private async performSearch(query: string, caseSensitive: boolean, filePattern: string, searchMode: SearchMode = 'file') {
         if (!query) {
             this._panel.webview.postMessage({
                 command: 'searchResults',
@@ -86,7 +87,8 @@ export class SearchPanel {
                 parsedQuery,
                 caseSensitive,
                 filePattern || '**/*',
-                '**/node_modules/**'
+                '**/node_modules/**',
+                searchMode
             );
 
             this._panel.webview.postMessage({
@@ -259,7 +261,13 @@ export class SearchPanel {
             • <code>term1 AND term2</code> - Find files containing both terms<br>
             • <code>term1 OR term2</code> - Find files containing either term<br>
             • <code>term1 NOT term2</code> - Find files containing term1 but not term2<br>
-            • Click on any result to open the file at that line
+            • <code>term1 AND term2 NOT term3</code> - Complex queries with multiple operators<br>
+            <br>
+            <strong>Search Modes:</strong><br>
+            • <strong>Same File:</strong> Terms can appear anywhere in the file<br>
+            • <strong>Same Line:</strong> All terms must appear on the same line<br>
+            <br>
+            Click on any result to open the file at that line
         </div>
         
         <input type="text" id="searchQuery" class="search-input" placeholder="Enter search query (e.g., 'function AND export')">
@@ -270,6 +278,18 @@ export class SearchPanel {
             <label>
                 <input type="checkbox" id="caseSensitive">
                 Case Sensitive
+            </label>
+        </div>
+        
+        <div class="search-options">
+            <label style="font-weight: 500; margin-right: 10px;">Search Mode:</label>
+            <label>
+                <input type="radio" name="searchMode" value="file" checked>
+                Same File
+            </label>
+            <label>
+                <input type="radio" name="searchMode" value="line">
+                Same Line
             </label>
         </div>
         
@@ -285,12 +305,14 @@ export class SearchPanel {
             const query = document.getElementById('searchQuery').value;
             const caseSensitive = document.getElementById('caseSensitive').checked;
             const filePattern = document.getElementById('filePattern').value;
+            const searchMode = document.querySelector('input[name="searchMode"]:checked').value;
             
             vscode.postMessage({
                 command: 'search',
                 query: query,
                 caseSensitive: caseSensitive,
-                filePattern: filePattern
+                filePattern: filePattern,
+                searchMode: searchMode
             });
         }
         

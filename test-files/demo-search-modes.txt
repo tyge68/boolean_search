@@ -1,0 +1,82 @@
+# Demo File: Search Mode Comparison
+
+This file demonstrates the difference between "Same File" and "Same Line" search modes.
+
+## Test Case 1: Terms on Different Lines
+
+Line with aaa only
+Line with bbb only
+Line with ccc only
+
+Query: "aaa AND bbb"
+- Same File Mode: ✅ MATCHES (file has both) - Shows lines 5 and 6
+- Same Line Mode: ❌ NO MATCH (no line has both)
+
+## Test Case 2: Terms on Same Line
+
+This line has both aaa and bbb together!
+
+Query: "aaa AND bbb"
+- Same File Mode: ✅ MATCHES - Shows line 16
+- Same Line Mode: ✅ MATCHES - Shows line 16
+
+## Test Case 3: NOT Operator - Different Lines
+
+Line with aaa here
+Line with bbb here
+Line with ccc here
+
+Query: "aaa NOT ccc"
+- Same File Mode: ❌ NO MATCH (file contains ccc)
+- Same Line Mode: ✅ MATCHES - Shows line 23 only (has aaa, not ccc)
+
+## Test Case 4: NOT Operator - Same Line
+
+Line with both aaa and ccc together - should NOT match
+
+Query: "aaa NOT ccc"
+- Same File Mode: ❌ NO MATCH (file contains ccc)
+- Same Line Mode: ❌ NO MATCH (line 31 has both)
+
+## Test Case 5: Complex Query
+
+Here is term aaa on this line
+Here is term bbb on this line
+Here is term ccc on this line
+Here we have aaa and bbb together
+Here we have aaa and bbb and ccc together
+
+Query: "aaa AND bbb NOT ccc"
+- Same File Mode: ❌ NO MATCH (file contains all three)
+- Same Line Mode: ✅ MATCHES - Shows line 40 only (aaa AND bbb, but no ccc)
+
+## Test Case 6: OR Operator
+
+Term aaa appears here
+Term bbb appears here
+
+Query: "aaa OR bbb"
+- Same File Mode: ✅ MATCHES - Shows lines 47 and 48
+- Same Line Mode: ✅ MATCHES - Shows lines 47 and 48
+  (OR works the same in both modes when terms are separate)
+
+## Test Case 7: Multiple Terms Same Line
+
+function export const myFunction = () => {}
+const private function internalHelper = () => {}
+
+Query: "function AND export"
+- Same File Mode: ✅ MATCHES - Shows both lines 57 and 58
+- Same Line Mode: ✅ MATCHES - Shows line 57 only
+
+Query: "function AND private"
+- Same File Mode: ✅ MATCHES - Shows both lines 57 and 58
+- Same Line Mode: ✅ MATCHES - Shows line 58 only
+
+## Summary
+
+Same File Mode = Terms anywhere in file
+Same Line Mode = Terms on the same line
+
+Choose the mode that fits your search intent!
+

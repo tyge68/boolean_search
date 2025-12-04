@@ -104,15 +104,19 @@ function parseTerm(tokens: string[]): BooleanQuery {
     return { operator: 'TERM', term: token };
 }
 
+export type SearchMode = 'file' | 'line';
+
 /**
  * Search files in a directory with boolean operators
+ * @param searchMode - 'file' means terms can be anywhere in the file (default), 'line' means all terms must be on the same line
  */
 export async function searchWithBoolean(
     directory: string,
     query: BooleanQuery,
     caseSensitive: boolean = false,
     filePattern: string = '**/*',
-    excludePattern: string = '**/node_modules/**'
+    excludePattern: string = '**/node_modules/**',
+    searchMode: SearchMode = 'file'
 ): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
     
@@ -125,7 +129,7 @@ export async function searchWithBoolean(
     for (const fileUri of files) {
         try {
             const content = fs.readFileSync(fileUri.fsPath, 'utf-8');
-            const matches = matchesQuery(content, query, caseSensitive);
+            const matches = matchesQuery(content, query, caseSensitive, searchMode);
             
             if (matches.length > 0) {
                 results.push({
@@ -145,43 +149,73 @@ export async function searchWithBoolean(
 /**
  * Check if content matches the boolean query and return match locations
  */
-function matchesQuery(content: string, query: BooleanQuery, caseSensitive: boolean): MatchInfo[] {
+function matchesQuery(content: string, query: BooleanQuery, caseSensitive: boolean, searchMode: SearchMode): MatchInfo[] {
     const lines = content.split('\n');
     const matchingLines: MatchInfo[] = [];
     
-    // First check if the file matches the query at all
-    if (!fileMatchesQuery(content, query, caseSensitive)) {
-        return [];
-    }
-    
-    // File matches, now find all matching lines
-    const relevantTerms = extractTerms(query);
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const searchLine = caseSensitive ? line : line.toLowerCase();
-        
-        // Check if this line contains any relevant term
-        let hasRelevantTerm = false;
-        let column = -1;
-        
-        for (const term of relevantTerms) {
-            const searchTerm = caseSensitive ? term : term.toLowerCase();
-            const pos = searchLine.indexOf(searchTerm);
-            if (pos >= 0) {
-                hasRelevantTerm = true;
-                if (column < 0 || pos < column) {
-                    column = pos;
-                }
-            }
+    if (searchMode === 'file') {
+        // FILE MODE: terms can be anywhere in the file
+        // First check if the file matches the query at all
+        if (!fileMatchesQuery(content, query, caseSensitive)) {
+            return [];
         }
         
-        if (hasRelevantTerm) {
-            matchingLines.push({
-                line: i + 1,
-                content: line,
-                column: column >= 0 ? column : 0
-            });
+        // File matches, now find all matching lines
+        const relevantTerms = extractTerms(query);
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const searchLine = caseSensitive ? line : line.toLowerCase();
+            
+            // Check if this line contains any relevant term
+            let hasRelevantTerm = false;
+            let column = -1;
+            
+            for (const term of relevantTerms) {
+                const searchTerm = caseSensitive ? term : term.toLowerCase();
+                const pos = searchLine.indexOf(searchTerm);
+                if (pos >= 0) {
+                    hasRelevantTerm = true;
+                    if (column < 0 || pos < column) {
+                        column = pos;
+                    }
+                }
+            }
+            
+            if (hasRelevantTerm) {
+                matchingLines.push({
+                    line: i + 1,
+                    content: line,
+                    column: column >= 0 ? column : 0
+                });
+            }
+        }
+    } else {
+        // LINE MODE: all terms must be on the same line
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Check if this line matches the query
+            if (lineMatchesQuery(line, query, caseSensitive)) {
+                // Find the column of the first matching term
+                const relevantTerms = extractTerms(query);
+                const searchLine = caseSensitive ? line : line.toLowerCase();
+                let column = -1;
+                
+                for (const term of relevantTerms) {
+                    const searchTerm = caseSensitive ? term : term.toLowerCase();
+                    const pos = searchLine.indexOf(searchTerm);
+                    if (pos >= 0 && (column < 0 || pos < column)) {
+                        column = pos;
+                    }
+                }
+                
+                matchingLines.push({
+                    line: i + 1,
+                    content: line,
+                    column: column >= 0 ? column : 0
+                });
+            }
         }
     }
     
@@ -209,6 +243,33 @@ function fileMatchesQuery(content: string, query: BooleanQuery, caseSensitive: b
             
         case 'NOT':
             return !fileMatchesQuery(content, query.right!, caseSensitive);
+            
+        default:
+            return false;
+    }
+}
+
+/**
+ * Check if a single line matches the query
+ */
+function lineMatchesQuery(line: string, query: BooleanQuery, caseSensitive: boolean): boolean {
+    const searchLine = caseSensitive ? line : line.toLowerCase();
+    
+    switch (query.operator) {
+        case 'TERM':
+            const searchTerm = caseSensitive ? query.term! : query.term!.toLowerCase();
+            return searchLine.includes(searchTerm);
+            
+        case 'AND':
+            return lineMatchesQuery(line, query.left!, caseSensitive) &&
+                   lineMatchesQuery(line, query.right!, caseSensitive);
+            
+        case 'OR':
+            return lineMatchesQuery(line, query.left!, caseSensitive) ||
+                   lineMatchesQuery(line, query.right!, caseSensitive);
+            
+        case 'NOT':
+            return !lineMatchesQuery(line, query.right!, caseSensitive);
             
         default:
             return false;

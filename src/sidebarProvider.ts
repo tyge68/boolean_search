@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { parseQuery, searchWithBoolean, SearchResult } from './search';
+import { parseQuery, searchWithBoolean, SearchResult, SearchMode } from './search';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'booleanSearchView';
@@ -31,7 +31,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                         await this.performSearch(
                             message.query,
                             message.caseSensitive,
-                            message.filePattern
+                            message.filePattern,
+                            message.searchMode
                         );
                         break;
                     case 'openFile':
@@ -42,7 +43,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         );
     }
 
-    private async performSearch(query: string, caseSensitive: boolean, filePattern: string) {
+    private async performSearch(query: string, caseSensitive: boolean, filePattern: string, searchMode: SearchMode = 'file') {
         if (!query) {
             this._view?.webview.postMessage({
                 command: 'searchResults',
@@ -73,7 +74,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
                 parsedQuery,
                 caseSensitive,
                 filePattern || '**/*',
-                '**/node_modules/**'
+                '**/node_modules/**',
+                searchMode
             );
 
             this._view?.webview.postMessage({
@@ -296,6 +298,21 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <label for="caseSensitive">Case Sensitive</label>
     </div>
     
+    <div class="input-group">
+        <label>Search Mode</label>
+        <div style="display: flex; gap: 12px; margin-top: 4px;">
+            <label style="display: flex; align-items: center; gap: 4px; font-weight: normal;">
+                <input type="radio" name="searchMode" value="file" checked>
+                Same File
+            </label>
+            <label style="display: flex; align-items: center; gap: 4px; font-weight: normal;">
+                <input type="radio" name="searchMode" value="line">
+                Same Line
+            </label>
+        </div>
+        <div class="help-text">Same File: terms anywhere in file. Same Line: all terms on same line.</div>
+    </div>
+    
     <button id="searchBtn">Search</button>
     
     <div class="results-container" id="results"></div>
@@ -328,11 +345,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         });
         
         function performSearch() {
+            const searchMode = document.querySelector('input[name="searchMode"]:checked').value;
             vscode.postMessage({
                 command: 'search',
                 query: searchQuery.value,
                 caseSensitive: caseSensitive.checked,
-                filePattern: filePattern.value
+                filePattern: filePattern.value,
+                searchMode: searchMode
             });
         }
         
