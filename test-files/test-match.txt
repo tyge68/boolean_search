@@ -1,0 +1,20 @@
+# Test File - Should Match "aaa AND bbb NOT ccc"
+
+This file contains aaa and bbb but NOT ccc.
+
+Here is aaa on this line.
+Here is bbb on this line.
+Here are both aaa and bbb together.
+
+This file should match queries like:
+- aaa
+- bbb
+- aaa AND bbb
+- aaa OR bbb
+- aaa AND bbb NOT ccc (SHOULD MATCH - no ccc here!)
+
+But should NOT match:
+- ccc (not present)
+- ddd (not present)
+- aaa AND ccc (ccc not present)
+

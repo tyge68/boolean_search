@@ -14,32 +14,94 @@ export interface MatchInfo {
 }
 
 export interface BooleanQuery {
-    operator: 'AND' | 'OR' | 'NOT';
-    terms: string[];
+    operator: 'AND' | 'OR' | 'NOT' | 'TERM';
+    terms?: string[];
+    left?: BooleanQuery;
+    right?: BooleanQuery;
+    term?: string;
 }
 
 /**
  * Parse a boolean search query
  * Supports: "term1 AND term2", "term1 OR term2", "term1 NOT term2"
- * Also supports parentheses and multiple operators
+ * Also supports multiple operators: "aaa AND bbb NOT ccc"
+ * Operator precedence: NOT > AND > OR
  */
 export function parseQuery(query: string): BooleanQuery {
-    // Simple parser for now - can be extended for complex queries
-    const upperQuery = query.toUpperCase();
+    const tokens = tokenize(query);
+    return parseOr(tokens);
+}
+
+function tokenize(query: string): string[] {
+    // Split by whitespace but keep operators as separate tokens
+    const tokens: string[] = [];
+    const parts = query.split(/\s+/);
     
-    if (upperQuery.includes(' AND ')) {
-        const terms = query.split(/\s+AND\s+/i);
-        return { operator: 'AND', terms: terms.map(t => t.trim()) };
-    } else if (upperQuery.includes(' OR ')) {
-        const terms = query.split(/\s+OR\s+/i);
-        return { operator: 'OR', terms: terms.map(t => t.trim()) };
-    } else if (upperQuery.includes(' NOT ')) {
-        const terms = query.split(/\s+NOT\s+/i);
-        return { operator: 'NOT', terms: terms.map(t => t.trim()) };
+    for (const part of parts) {
+        if (part.toUpperCase() === 'AND' || part.toUpperCase() === 'OR' || part.toUpperCase() === 'NOT') {
+            tokens.push(part.toUpperCase());
+        } else if (part.trim()) {
+            tokens.push(part.trim());
+        }
     }
     
-    // Default to AND if no operator specified and multiple terms with spaces
-    return { operator: 'AND', terms: [query.trim()] };
+    return tokens;
+}
+
+// Parse OR (lowest precedence)
+function parseOr(tokens: string[]): BooleanQuery {
+    let left = parseAnd(tokens);
+    
+    while (tokens.length > 0 && tokens[0] === 'OR') {
+        tokens.shift(); // consume OR
+        const right = parseAnd(tokens);
+        left = { operator: 'OR', left, right };
+    }
+    
+    return left;
+}
+
+// Parse AND (medium precedence)
+function parseAnd(tokens: string[]): BooleanQuery {
+    let left = parseNot(tokens);
+    
+    while (tokens.length > 0 && tokens[0] === 'AND') {
+        tokens.shift(); // consume AND
+        const right = parseNot(tokens);
+        left = { operator: 'AND', left, right };
+    }
+    
+    return left;
+}
+
+// Parse NOT (highest precedence)
+function parseNot(tokens: string[]): BooleanQuery {
+    let left = parseTerm(tokens);
+    
+    while (tokens.length > 0 && tokens[0] === 'NOT') {
+        tokens.shift(); // consume NOT
+        const right = parseTerm(tokens);
+        // NOT is treated as: left AND (NOT right)
+        const notRight = { operator: 'NOT' as const, right };
+        left = { operator: 'AND', left, right: notRight };
+    }
+    
+    return left;
+}
+
+// Parse a single term
+function parseTerm(tokens: string[]): BooleanQuery {
+    if (tokens.length === 0) {
+        throw new Error('Unexpected end of query');
+    }
+    
+    const token = tokens.shift()!;
+    
+    if (token === 'AND' || token === 'OR' || token === 'NOT') {
+        throw new Error(`Unexpected operator: ${token}`);
+    }
+    
+    return { operator: 'TERM', term: token };
 }
 
 /**
@@ -86,72 +148,35 @@ export async function searchWithBoolean(
 function matchesQuery(content: string, query: BooleanQuery, caseSensitive: boolean): MatchInfo[] {
     const lines = content.split('\n');
     const matchingLines: MatchInfo[] = [];
-    const searchTerms = caseSensitive ? query.terms : query.terms.map(t => t.toLowerCase());
-    const searchContent = caseSensitive ? content : content.toLowerCase();
     
-    // For AND operator, check if all terms exist anywhere in the file first
-    if (query.operator === 'AND') {
-        const allTermsExist = searchTerms.every(term => searchContent.includes(term));
-        if (!allTermsExist) {
-            return []; // File doesn't contain all terms, no matches
-        }
-        
-        // File contains all terms, now return all lines that contain at least one term
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const searchLine = caseSensitive ? line : line.toLowerCase();
-            
-            // Check if this line contains any of the terms
-            const hasAnyTerm = searchTerms.some(term => searchLine.includes(term));
-            
-            if (hasAnyTerm) {
-                // Find the column of the first matching term
-                let column = -1;
-                for (const term of searchTerms) {
-                    const pos = searchLine.indexOf(term);
-                    if (pos >= 0 && (column < 0 || pos < column)) {
-                        column = pos;
-                    }
-                }
-                
-                matchingLines.push({
-                    line: i + 1,
-                    content: line,
-                    column: column >= 0 ? column : 0
-                });
-            }
-        }
-        return matchingLines;
+    // First check if the file matches the query at all
+    if (!fileMatchesQuery(content, query, caseSensitive)) {
+        return [];
     }
     
-    // For OR and NOT operators, check line by line (original behavior)
+    // File matches, now find all matching lines
+    const relevantTerms = extractTerms(query);
+    
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const searchLine = caseSensitive ? line : line.toLowerCase();
         
-        let isMatch = false;
+        // Check if this line contains any relevant term
+        let hasRelevantTerm = false;
+        let column = -1;
         
-        switch (query.operator) {
-            case 'OR':
-                // At least one term must be present
-                isMatch = searchTerms.some(term => searchLine.includes(term));
-                break;
-            case 'NOT':
-                // First term must be present, others must not be
-                if (searchTerms.length >= 2) {
-                    isMatch = searchLine.includes(searchTerms[0]) &&
-                             !searchTerms.slice(1).some(term => searchLine.includes(term));
-                } else {
-                    isMatch = searchLine.includes(searchTerms[0]);
+        for (const term of relevantTerms) {
+            const searchTerm = caseSensitive ? term : term.toLowerCase();
+            const pos = searchLine.indexOf(searchTerm);
+            if (pos >= 0) {
+                hasRelevantTerm = true;
+                if (column < 0 || pos < column) {
+                    column = pos;
                 }
-                break;
+            }
         }
         
-        if (isMatch) {
-            // Find the column of the first matching term
-            const firstTerm = searchTerms[0];
-            const column = searchLine.indexOf(firstTerm);
-            
+        if (hasRelevantTerm) {
             matchingLines.push({
                 line: i + 1,
                 content: line,
@@ -161,6 +186,64 @@ function matchesQuery(content: string, query: BooleanQuery, caseSensitive: boole
     }
     
     return matchingLines;
+}
+
+/**
+ * Check if the entire file content matches the query
+ */
+function fileMatchesQuery(content: string, query: BooleanQuery, caseSensitive: boolean): boolean {
+    const searchContent = caseSensitive ? content : content.toLowerCase();
+    
+    switch (query.operator) {
+        case 'TERM':
+            const searchTerm = caseSensitive ? query.term! : query.term!.toLowerCase();
+            return searchContent.includes(searchTerm);
+            
+        case 'AND':
+            return fileMatchesQuery(content, query.left!, caseSensitive) &&
+                   fileMatchesQuery(content, query.right!, caseSensitive);
+            
+        case 'OR':
+            return fileMatchesQuery(content, query.left!, caseSensitive) ||
+                   fileMatchesQuery(content, query.right!, caseSensitive);
+            
+        case 'NOT':
+            return !fileMatchesQuery(content, query.right!, caseSensitive);
+            
+        default:
+            return false;
+    }
+}
+
+/**
+ * Extract all positive terms from the query (for highlighting)
+ */
+function extractTerms(query: BooleanQuery): string[] {
+    const terms: string[] = [];
+    
+    switch (query.operator) {
+        case 'TERM':
+            if (query.term) {
+                terms.push(query.term);
+            }
+            break;
+            
+        case 'AND':
+        case 'OR':
+            if (query.left) {
+                terms.push(...extractTerms(query.left));
+            }
+            if (query.right) {
+                terms.push(...extractTerms(query.right));
+            }
+            break;
+            
+        case 'NOT':
+            // Don't include negated terms in highlights
+            break;
+    }
+    
+    return terms;
 }
 
 /**

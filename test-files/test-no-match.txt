@@ -1,0 +1,21 @@
+# Test File - Should NOT Match "aaa AND bbb NOT ccc"
+
+This file contains aaa, bbb, AND ccc - so it should be excluded by NOT.
+
+Here is aaa on this line.
+Here is bbb on this line.
+Here is ccc on this line - this is the excluding term!
+Here are aaa, bbb, and ccc all together.
+
+This file should match queries like:
+- aaa
+- bbb
+- ccc
+- aaa AND bbb
+- aaa AND bbb AND ccc
+
+But should NOT match:
+- aaa AND bbb NOT ccc (SHOULD NOT MATCH - ccc is present!)
+- aaa NOT ccc (ccc is present)
+- bbb NOT ccc (ccc is present)
+
