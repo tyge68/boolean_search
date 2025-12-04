@@ -10,14 +10,38 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:boolean-search.search"
+    "onCommand:boolean-search.search",
+    "onView:booleanSearchView"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "boolean-search-sidebar",
+          "title": "Boolean Search",
+          "icon": "$(search)"
+        }
+      ]
+    },
+    "views": {
+      "boolean-search-sidebar": [
+        {
+          "type": "webview",
+          "id": "booleanSearchView",
+          "name": "Search Panel"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "boolean-search.search",
         "title": "Boolean Search: Search with Boolean Operators"
+      },
+      {
+        "command": "boolean-search.openSidebar",
+        "title": "Boolean Search: Open Sidebar",
+        "icon": "$(search)"
       }
     ],
     "keybindings": [

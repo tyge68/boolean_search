@@ -86,19 +86,52 @@ export async function searchWithBoolean(
 function matchesQuery(content: string, query: BooleanQuery, caseSensitive: boolean): MatchInfo[] {
     const lines = content.split('\n');
     const matchingLines: MatchInfo[] = [];
+    const searchTerms = caseSensitive ? query.terms : query.terms.map(t => t.toLowerCase());
+    const searchContent = caseSensitive ? content : content.toLowerCase();
     
+    // For AND operator, check if all terms exist anywhere in the file first
+    if (query.operator === 'AND') {
+        const allTermsExist = searchTerms.every(term => searchContent.includes(term));
+        if (!allTermsExist) {
+            return []; // File doesn't contain all terms, no matches
+        }
+        
+        // File contains all terms, now return all lines that contain at least one term
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const searchLine = caseSensitive ? line : line.toLowerCase();
+            
+            // Check if this line contains any of the terms
+            const hasAnyTerm = searchTerms.some(term => searchLine.includes(term));
+            
+            if (hasAnyTerm) {
+                // Find the column of the first matching term
+                let column = -1;
+                for (const term of searchTerms) {
+                    const pos = searchLine.indexOf(term);
+                    if (pos >= 0 && (column < 0 || pos < column)) {
+                        column = pos;
+                    }
+                }
+                
+                matchingLines.push({
+                    line: i + 1,
+                    content: line,
+                    column: column >= 0 ? column : 0
+                });
+            }
+        }
+        return matchingLines;
+    }
+    
+    // For OR and NOT operators, check line by line (original behavior)
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const searchLine = caseSensitive ? line : line.toLowerCase();
-        const searchTerms = caseSensitive ? query.terms : query.terms.map(t => t.toLowerCase());
         
         let isMatch = false;
         
         switch (query.operator) {
-            case 'AND':
-                // All terms must be present in the line
-                isMatch = searchTerms.every(term => searchLine.includes(term));
-                break;
             case 'OR':
                 // At least one term must be present
                 isMatch = searchTerms.some(term => searchLine.includes(term));
