@@ -3,6 +3,29 @@
   "displayName": "Boolean Search",
   "description": "Search files with boolean operators (AND, OR, NOT)",
   "version": "0.1.0",
+  "publisher": "YOUR_PUBLISHER_ID",
+  "author": {
+    "name": "Buluk"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tyge68/boolean-search-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tyge68/boolean-search-extension/issues"
+  },
+  "homepage": "https://github.com/tyge68/boolean-search-extension#readme",
+  "keywords": [
+    "search",
+    "boolean",
+    "AND",
+    "OR",
+    "NOT",
+    "query",
+    "filter",
+    "find"
+  ],
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -57,7 +80,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",

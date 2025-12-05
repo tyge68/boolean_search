@@ -1,11 +1,30 @@
+# Source files
+src/**
+test-files/**
+test-parser.js
+
+# Build files
+tsconfig.json
+.gitignore
+
+# Documentation for development
+EXTENSION_OVERVIEW.md
+GET_STARTED.md
+QUICKSTART.md
+PARSER_DEMO.md
+SEARCH_MODES.md
+PUBLISHING.md
+
+# GitHub
+.github/**
+
+# Dependencies
+node_modules/**
+
+# Editor
 .vscode/**
 .vscode-test/**
-src/**
-.gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/.eslintrc.json
-**/*.map
-**/*.ts
 
+# Misc
+*.vsix
+.eslintrc.json

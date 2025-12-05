@@ -2,14 +2,18 @@
 
 A powerful VS Code extension that enables searching across your workspace using boolean operators (AND, OR, NOT) to find files containing multiple search terms.
 
-## Features
+## ✨ Features
 
-- **Boolean Operators**: Use AND, OR, and NOT operators to create complex search queries
-- **Interactive UI**: Clean, modern interface with real-time results
-- **Click to Navigate**: Click any search result to jump directly to that line in the file
-- **File Filtering**: Filter searches by file patterns (e.g., `**/*.ts`, `**/*.js`)
-- **Case Sensitivity**: Toggle case-sensitive search on/off
-- **Visual Results**: See matching lines with line numbers for easy navigation
+- **🔍 Boolean Operators**: Use AND, OR, and NOT operators to create complex search queries
+- **🎯 Multiple Operators**: Support for queries like `aaa AND bbb NOT ccc NOT ddd`
+- **📏 Search Modes**: Choose between "Same File" (default) or "Same Line" matching
+- **🎨 Interactive UI**: Clean, modern interface with real-time results
+- **👆 Click to Navigate**: Click any search result to jump directly to that line in the file
+- **📁 File Filtering**: Filter searches by file patterns (e.g., `**/*.ts`, `**/*.js`)
+- **🔠 Case Sensitivity**: Toggle case-sensitive search on/off
+- **📊 Visual Results**: See matching lines with line numbers for easy navigation
+- **⚡ Fast**: Efficient search across large codebases
+- **🌳 Smart Parsing**: Proper operator precedence (NOT > AND > OR)
 
 ## Usage
 
@@ -30,7 +34,8 @@ Find files containing **all** specified terms:
 ```
 function AND export
 ```
-This will find files where both "function" and "export" appear in the same line.
+- **Same File mode**: Both "function" and "export" appear anywhere in the file
+- **Same Line mode**: Both terms appear on the same line
 
 #### OR Operator
 Find files containing **any** of the specified terms:
@@ -44,7 +49,42 @@ Find files containing the first term but **not** the others:
 ```
 console NOT log
 ```
-This will find files where "console" appears but "log" does not on the same line.
+- **Same File mode**: "console" appears but "log" does not appear anywhere in the file
+- **Same Line mode**: Lines where "console" appears but "log" does not
+
+#### Complex Queries
+Combine multiple operators in one query:
+```
+aaa AND bbb NOT ccc
+aaa AND bbb AND ccc NOT ddd
+aaa OR bbb AND ccc
+```
+
+**Operator Precedence** (highest to lowest):
+1. NOT (highest)
+2. AND
+3. OR (lowest)
+
+Example: `aaa OR bbb AND ccc` is evaluated as `aaa OR (bbb AND ccc)`
+
+### Search Modes
+
+#### Same File Mode (Default)
+Terms can appear **anywhere** in the file. Use for:
+- Finding files that discuss multiple topics
+- Document-level filtering
+- Broad searches across file content
+
+#### Same Line Mode
+**All terms must appear on the same line**. Use for:
+- Finding specific code patterns
+- Precise statement matching
+- Lines with multiple keywords together
+
+**Example:**
+- Query: `function AND export`
+- Same File: Shows files with both words anywhere
+- Same Line: Shows only lines like `export function myFunc()`
 
 ### File Patterns
 
@@ -59,60 +99,89 @@ Leave the file pattern field empty to search all text files.
 
 ### Examples
 
-1. **Find React components that export default**:
+#### Code Search Examples
+
+1. **Find exported functions** (Same Line mode):
    ```
-   React AND export default
+   function AND export
    ```
 
-2. **Find error or exception handling**:
+2. **Find class implementations** (Same Line mode):
+   ```
+   class AND implements
+   ```
+
+3. **Find React+TypeScript files** (Same File mode):
+   ```
+   React AND TypeScript
+   ```
+
+4. **Find error or exception handling**:
    ```
    throw OR catch OR error
    ```
 
-3. **Find imports without certain packages**:
+5. **Find imports without deprecated packages**:
    ```
-   import NOT react
+   import NOT deprecated
    ```
+
+6. **Find authentication without specific library**:
+   ```
+   authentication AND password NOT bcrypt
+   ```
+
+#### Real-World Use Cases
+
+- **Finding exported constants**: `export AND const` (Same Line)
+- **Security audits**: `password AND hash NOT encrypt` (Same File)
+- **Finding TODO comments**: `TODO OR FIXME OR HACK` (Same Line)
+- **Database queries**: `query AND database NOT mongodb` (Same File)
+- **Error logs**: `Error AND failed AND connection` (Same Line)
 
 ## Installation
 
-### From VSIX (Recommended for local use)
+### From VS Code Marketplace (Recommended)
 
 1. Open VS Code
 2. Go to Extensions view (`Cmd+Shift+X` or `Ctrl+Shift+X`)
-3. Click the "..." menu at the top of the Extensions view
-4. Select "Install from VSIX..."
-5. Select the `boolean-search-0.1.0.vsix` file
+3. Search for "Boolean Search"
+4. Click **Install**
 
-### From Source
+Or visit the [VS Code Marketplace](https://marketplace.visualstudio.com/vscode) (update link after publishing).
 
-1. Clone or download this repository
-2. Open a terminal in the extension directory
-3. Run:
+### From VSIX File
+
+1. Download the `.vsix` file from [Releases](../../releases)
+2. Open VS Code
+3. Go to Extensions view (`Cmd+Shift+X` or `Ctrl+Shift+X`)
+4. Click the "..." menu at the top of the Extensions view
+5. Select "Install from VSIX..."
+6. Select the downloaded `.vsix` file
+
+### From Source (Development)
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/boolean-search-extension.git
+   cd boolean-search-extension
+   ```
+
+2. Install dependencies:
    ```bash
    npm install
+   ```
+
+3. Compile TypeScript:
+   ```bash
    npm run compile
    ```
-4. Press `F5` to open a new VS Code window with the extension loaded
 
-### Publishing to Marketplace
+4. Press `F5` in VS Code to open Extension Development Host
 
-To publish this extension to the VS Code Marketplace:
+### For Publishers
 
-1. Install vsce:
-   ```bash
-   npm install -g @vscode/vsce
-   ```
-
-2. Package the extension:
-   ```bash
-   vsce package
-   ```
-
-3. Publish:
-   ```bash
-   vsce publish
-   ```
+See [PUBLISHING.md](./PUBLISHING.md) for detailed instructions on publishing this extension to the VS Code Marketplace.
 
 ## Development
 
@@ -150,19 +219,20 @@ boolean-search-extension/
 
 ## Known Limitations
 
-- Boolean operators currently work on a per-line basis (all terms must be on the same line)
-- Advanced query parsing (parentheses for complex queries) is not yet supported
+- Parentheses for explicit grouping not yet supported: `(term1 OR term2) AND term3`
 - Binary files are automatically skipped
+- node_modules excluded by default
 
 ## Future Enhancements
 
-- [ ] Support for regex patterns in search terms
-- [ ] Multi-line boolean search
-- [ ] Advanced query syntax with parentheses: `(term1 OR term2) AND term3`
+- [ ] Parentheses support for explicit grouping
+- [ ] Regex patterns in search terms
+- [ ] Proximity search: `term1 NEAR term2`
 - [ ] Search history
 - [ ] Export results to file
 - [ ] Replace functionality
 - [ ] Fuzzy matching option
+- [ ] Search within selection
 
 ## Contributing
 
@@ -176,10 +246,25 @@ MIT License - See LICENSE file for details
 
 ### 0.1.0
 
-Initial release with:
+Initial release featuring:
+
+**Core Search Features:**
 - Boolean search operators (AND, OR, NOT)
-- Interactive webview UI
+- Complex queries with multiple operators
+- Proper operator precedence (NOT > AND > OR)
+- Two search modes: Same File and Same Line
+
+**User Interface:**
+- Interactive webview UI in sidebar and panel
 - File pattern filtering
 - Case-sensitive search option
 - Click-to-navigate results
+- Keyboard shortcut: `Cmd/Ctrl+Shift+B`
+
+**Performance:**
+- Fast search across large codebases
+- Automatic exclusion of node_modules
+- Efficient file-level filtering
+
+See [CHANGELOG.md](./CHANGELOG.md) for detailed updates.
 
